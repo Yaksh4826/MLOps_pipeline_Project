@@ -3,10 +3,20 @@ from datetime import datetime
 from tfx.orchestration.airflow.airflow_dag_runner import AirflowDagRunner
 
 # Add project root to path so pipeline.py can be imported
-sys.path.insert(0, "/root/airflow/dags/COMP315_Group8_project")
-from pipeline.pipeline import create_pipeline
+# sys.path.insert(0, "/root/airflow/dags/COMP315_Group8_project")
+# from ..pipeline import create_pipeline
 
-BASE = "/root/airflow/dags/COMP315_Group8_project"
+parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.append(parent_dir)
+from pipeline import create_pipeline
+
+
+BASE = os.path.join(
+    os.path.expanduser("~"),
+    "airflow",
+    "dags",
+    "obesity_pipeline"
+)
 
 AIRFLOW_CONFIG = {
     "schedule_interval": None,
