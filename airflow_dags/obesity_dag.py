@@ -14,7 +14,7 @@ AIRFLOW_CONFIG = {
     "catchup": False,
 }
 
-DAG = AirflowDagRunner(config=AIRFLOW_CONFIG).run(
+DAG = AirflowDagRunner(config=AIRFLOW_CONFIG, enable_cache=False).run(
     create_pipeline(
         pipeline_name="obesity_data_validation_pipeline",
         pipeline_root=os.path.join(BASE, "outputs"),

@@ -17,5 +17,5 @@ def create_pipeline(pipeline_name, pipeline_root, data_root, metadata_path):
         pipeline_root=pipeline_root,
         metadata_connection_config=tfx.orchestration.metadata.sqlite_metadata_connection_config(metadata_path),
         components=[example_gen, statistics_gen, schema_gen, example_validator],
-        enable_cache=True,
+        enable_cache=False,
     )
