@@ -7,6 +7,7 @@ from tfx.types.standard_artifacts import Model, ModelBlessing
 
 
 def create_pipeline(pipeline_name, pipeline_root, data_root, metadata_path):
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     # Steps 1-4 (Member A)
     example_gen = tfx.components.CsvExampleGen(input_base=data_root)
     statistics_gen = tfx.components.StatisticsGen(examples=example_gen.outputs["examples"])
@@ -22,12 +23,14 @@ def create_pipeline(pipeline_name, pipeline_root, data_root, metadata_path):
     transform = tfx.components.Transform(
         examples=example_gen.outputs['examples'],
         schema=schema_gen.outputs['schema'],
-        module_file=os.path.join('pipeline', 'transform.py')
+        #module_file=os.path.join('transform.py')
+        module_file=os.path.join(BASE_DIR, 'transform.py')
         )
 
     # Step 6: Trainer (Wired to Transform graph/examples and module file)
     trainer = tfx.components.Trainer(
-        module_file=os.path.join('pipeline', 'trainer.py'),
+        #module_file=os.path.join('trainer.py'),
+        module_file=os.path.join(BASE_DIR, 'trainer.py'),
         examples=transform.outputs['transformed_examples'],
         transform_graph=transform.outputs['transform_graph'],
         schema=schema_gen.outputs['schema'],
@@ -46,6 +49,6 @@ def create_pipeline(pipeline_name, pipeline_root, data_root, metadata_path):
         pipeline_name=pipeline_name,
         pipeline_root=pipeline_root,
         metadata_connection_config=tfx.orchestration.metadata.sqlite_metadata_connection_config(metadata_path),
-        components=[example_gen, statistics_gen, schema_gen, example_validator],
+        components=[example_gen, statistics_gen, schema_gen, example_validator,transform,trainer,model_resolver],
         enable_cache=True,
     )
