@@ -1,0 +1,7 @@
+# Pushed SavedModel can be large — keep folder, ignore contents
+serving_model/*
+!serving_model/.gitkeep
+
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/

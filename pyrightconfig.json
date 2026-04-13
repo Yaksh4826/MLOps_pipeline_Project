@@ -1,0 +1,4 @@
+{
+  "venvPath": "${env:HOME}/anaconda3/envs",
+  "venv": "tfx-env"
+}
