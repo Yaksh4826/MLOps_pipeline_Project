@@ -74,7 +74,7 @@ def run_fn(args: FnArgs):
 
     model.fit(
         train_dataset,
-        epochs=1,
+        epochs=10,
         steps_per_epoch=train_steps,
         validation_data=eval_dataset,
         validation_steps=eval_steps,
