@@ -1,77 +1,98 @@
-# COMP315 — MLOps end-to-end pipeline (Group 8)
+# COMP315 — MLOps End-to-End Pipeline (Group 8)
 
-TFX pipeline for **obesity binary classification**, orchestrated with **Apache Airflow**, with **TFDV** (data validation) and **TFMA** (model evaluation) visualization in **`Visualization.ipynb`**.
+A TFX pipeline for **obesity binary classification**, orchestrated with **Apache Airflow**. Data validation uses **TFDV**, model evaluation uses **TFMA**, and interactive model exploration uses the **TensorBoard What-If Tool**. Artifact visualizations are collected in **`Visualization.ipynb`**.
 
-## What’s in the repo
+## Repository layout
 
-| Area | Role |
-|------|------|
-| `obesity_tfx/` | TFX pipeline (`tfx_pipeline.py`), `Transform`, `Trainer`, Evaluator blessing |
-| `airflow_dags/obesity_dag.py` | Airflow DAG entrypoint |
-| `data/obesity/` | CSV + dataset notes |
-| `Visualization.ipynb` | **Artifact walkthrough**: ExampleGen → … → Trainer → Evaluator → Pusher (see the notebook’s step table) |
-| `serving_model/` | **Pusher** writes the blessed **SavedModel** here (TensorFlow Serving / What-If); large files are gitignored except `.gitkeep` |
-| `requirements.txt` | Python deps for pipeline + notebooks |
+| Directory / file | Description |
+|---|---|
+| `obesity_tfx/` | TFX pipeline definition (`tfx_pipeline.py`), feature engineering (`transform.py`), and model training (`trainer.py`) |
+| `airflow_dags/obesity_dag.py` | Airflow DAG that orchestrates the pipeline end-to-end |
+| `data/obesity/` | Source CSV and dataset documentation |
+| `Visualization.ipynb` | Step-by-step artifact walkthrough: ExampleGen → StatisticsGen → SchemaGen → ExampleValidator → Transform → Trainer → Evaluator → Pusher |
+| `serving_model/` | Pusher writes the blessed SavedModel here (gitignored except `.gitkeep`) |
+| `scripts/` | Helper scripts for the What-If Tool and notebook generation |
+| `requirements.txt` | Python dependencies for the pipeline and notebooks |
 
-Run the **`obesity_ml_pipeline`** DAG (or local TFX driver) so `tfx_airflow_runs/outputs/` contains component artifacts before opening the notebook.
+## Running the pipeline
 
-## TensorBoard — What-If Tool (WIT) in the **web browser**
+The **`obesity_ml_pipeline`** DAG (or the local driver `python run_local.py`) produces all component artifacts under `tfx_airflow_runs/outputs/` (Airflow) or `tfx_pipeline_runs/` (local). The pipeline must complete at least once before opening the notebook or the What-If dashboard.
 
-Use the **What-If** UI inside **TensorBoard** (not Jupyter): open `http://localhost:6006`, use the top-right menu to switch to **What-If**, then complete the setup dialog. Official overview: [What-If Tool — TensorBoard](https://pair-code.github.io/what-if-tool/learn/tutorials/tensorboard/).
+---
 
-### 1. Install the plugin
+## What-If Tool dashboard
 
-In **`tfx-env`**:
+The What-If Tool (WIT) is a TensorBoard plugin that provides interactive model exploration — counterfactual analysis, partial dependence plots, and fairness metrics — all in the browser, no code required.
 
-`pip install 'tensorboard-plugin-wit>=1.8,<2'`
+### Prerequisites
 
-(`witwidget` is only needed if you embed WIT inside a notebook; you can skip it for the web UI.)
-
-### 2. Point the tool at **eval TFRecords** (transformed schema)
-
-WIT reads **`tf.Example`** TFRecords from disk. Use the **same transformed eval split** as TFMA:
-
-- `tfx_airflow_runs/outputs/Transform/transformed_examples/<id>/Split-eval/*.gz`
-
-Optional: merge shards into one file so the file picker is simple:
+- A completed pipeline run (so SavedModel and transformed eval TFRecords exist on disk).
+- The `tfx-env` conda environment with `tensorboard-plugin-wit` installed:
 
 ```bash
-python scripts/prep_wit_eval_tfrecord.py \
-  --pattern '/root/airflow/dags/COMP315_Group8_project/tfx_airflow_runs/outputs/Transform/transformed_examples/<id>/Split-eval/*.gz' \
-  --max-examples 500 \
-  --out /tmp/wit_eval.tfrecord.gz
+conda activate tfx-env
+pip install 'tensorboard-plugin-wit>=1.8,<2'
 ```
 
-Put that file in a directory you pass to TensorBoard as the **what-if data directory** (see below), e.g. `/tmp`.
+### Quick start (one command)
 
-### 3. Load your **SavedModel** (this project: Keras `serving_default`)
-
-**Option A — Custom prediction (simplest for this repo’s multi-input Keras model)**
-
-This uses `scripts/wit_custom_predict.py` so you do **not** need TensorFlow Serving.
+From the repository root (`~/COMP315_Group8_project`):
 
 ```bash
-export WIT_SAVEDMODEL_PATH='/root/airflow/dags/COMP315_Group8_project/tfx_airflow_runs/outputs/Trainer/model/<run_id>/Format-Serving'
-tensorboard --logdir=/tmp/wit_tb --bind_all \
-  --whatif_data_dir=/tmp \
-  --whatif_use_unsafe_custom_prediction="$(pwd)/scripts/wit_custom_predict.py"
+source ~/anaconda3/etc/profile.d/conda.sh && conda activate tfx-env && bash run_wit_ui.sh
 ```
 
-If your TensorBoard build uses **hyphenated** flags instead, try: `--whatif-data-dir` and `--whatif-use-unsafe-custom-prediction`. Check with `tensorboard --helpfull | grep -i whatif`.
+This automatically:
+1. Syncs `scripts/` into the Airflow project copy.
+2. Finds the latest Pusher SavedModel and Transform eval TFRecords.
+3. Copies the eval file next to the model (TensorBoard security requirement).
+4. Launches TensorBoard with the What-If plugin and custom prediction enabled.
 
-Then in the WIT **setup** dialog:
+The terminal prints the paths it used. Open **`http://localhost:6006`** in a browser.
 
-- **Path to examples:** `/tmp/wit_eval.tfrecord.gz` (or a shard path under `--whatif_data_dir`).
-- **Model type:** classification (binary).
-- Choose **custom prediction function** / follow prompts so TensorBoard uses the script above (wording varies by version).
-- Class names (optional): add a small text file with two lines, `Not obese` then `Obese`, and point the dialog at it if offered.
+### What-If setup dialog
 
-**Option B — TensorFlow Serving**
+Once TensorBoard is running, select **What-If Tool** from the top-right plugin menu and fill in the setup dialog:
 
-Serve the same **Format-Serving** directory with TensorFlow Serving’s **Predict** API, then in the WIT dialog set **inference address** `host:port`, **model name**, enable **uses Predict API**, and wire input/output tensor names to match your `serving_default` signature. Dataset path rules are the same; see the [tutorial](https://pair-code.github.io/what-if-tool/learn/tutorials/tensorboard/).
+| Field | Value |
+|---|---|
+| Path to examples | The `wit_eval.tfrecord.gz` path printed in the terminal (under the Pusher model directory) |
+| Model type | Classification (binary) |
+| Inference | Custom prediction function (loaded automatically from the launch command) |
 
-### 4. Course screenshots (in the web UI)
+Inference address and model name fields can be left as placeholders — they are ignored when using the custom prediction script.
 
-- **Counterfactuals:** explore datapoints → **Counterfactuals**; capture **≥3** examples and write **one paragraph each**.
-- **Fairness / threshold:** **Performance & Fairness** → set a **threshold**; slice by **`Gender`** (and optionally **`Age_bucket`**); **one** screenshot + paragraph.
-- **Distributions + partial dependence:** **Features** tab → histograms and **partial dependence** plots; short interpretation for your report.
+### Manual launch (if the quick-start script is not available)
+
+```bash
+conda activate tfx-env
+
+export WIT_SAVEDMODEL_PATH='/root/airflow/dags/COMP315_Group8_project/tfx_airflow_runs/outputs/Pusher/pushed_model/34'
+
+cp /root/airflow/dags/COMP315_Group8_project/tfx_airflow_runs/outputs/Transform/transformed_examples/46/Split-eval/transformed_examples-00000-of-00001.gz \
+   "$WIT_SAVEDMODEL_PATH/wit_eval.tfrecord.gz"
+
+cd ~/COMP315_Group8_project
+
+tensorboard --logdir="$WIT_SAVEDMODEL_PATH" --bind_all \
+  --whatif-data-dir="$WIT_SAVEDMODEL_PATH" \
+  --whatif-use-unsafe-custom-prediction="$(pwd)/scripts/wit_custom_predict.py"
+```
+
+Replace `pushed_model/34` and `transformed_examples/46` with the artifact IDs from the pipeline run being explored. Flags use **hyphens** (`--whatif-data-dir`), not underscores.
+
+### Dashboard tabs
+
+| Tab | What it shows |
+|---|---|
+| **Datapoint editor** | Individual examples with real-time score updates when features are edited. Nearest-counterfactual mode highlights the smallest feature diff that changes the prediction. |
+| **Performance & Fairness** | Accuracy, false-positive rate, false-negative rate, and F1 across slices (e.g. Gender, Age_bucket). A threshold slider shows how metrics shift as the decision boundary moves. |
+| **Features** | Feature distributions (histograms) and partial-dependence plots showing how predictions change as a single feature varies. |
+
+---
+
+## References
+
+- [What-If Tool documentation](https://pair-code.github.io/what-if-tool/)
+- [TensorBoard WIT tutorial](https://pair-code.github.io/what-if-tool/learn/tutorials/tensorboard/)
+- Hapke & Nelson, *Building Machine Learning Pipelines*, O'Reilly, 2020 (Chapters 7 & 8)
