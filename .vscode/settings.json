@@ -1,3 +1,0 @@
-{
-  "python.defaultInterpreterPath": "${env:HOME}/anaconda3/envs/tfx-env/bin/python"
-}

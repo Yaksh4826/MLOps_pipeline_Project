@@ -1,7 +1,25 @@
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE / editor
+.vscode/
+.idea/
+pyrightconfig.json
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+
 # Pushed SavedModel can be large — keep folder, ignore contents
 serving_model/*
 !serving_model/.gitkeep
 
-__pycache__/
-*.py[cod]
-.ipynb_checkpoints/
+# OS junk
+*Zone.Identifier
+.DS_Store
+Thumbs.db
